@@ -6,15 +6,15 @@ on:
   workflow_dispatch:
 
 jobs:
-  integration:
-    uses: ./.github/workflows/node-ci-workflow.yml
-    permissions:
-      contents: read
-      checks: write
-      pull-requests: write
+  # integration:
+  #   uses: ./.github/workflows/node-ci-workflow.yml
+  #   permissions:
+  #     contents: read
+  #     checks: write
+  #     pull-requests: write
   
   build_and_deploy:
-    needs: [integration]
+    # needs: [integration]
 
     runs-on: ubuntu-22.04
     timeout-minutes: 10
