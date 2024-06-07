@@ -1,4 +1,4 @@
-name: Deploy to Firebase Dev Env
+name: Deploy to Firebase Dev Environment
 
 on:
   push:
