@@ -4,10 +4,10 @@ name: Node.js CI
 on:
   push:
 #    branches: ["feature/*", "bug/*", hotfix/*, fix/*]
-    branches: ["master"]
+    branches: ["dev"]
   pull_request:
 #    branches: ["develop", "dev", "sandbox", "main"]
-    branches: ["master"]
+    branches: ["dev"]
   workflow_call:
 
 jobs:
