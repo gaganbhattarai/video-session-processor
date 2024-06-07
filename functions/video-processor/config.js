@@ -12,20 +12,23 @@ const config = convict({
   },
   cloud: {
     bucket: {
-      name: {
-        doc: 'Default Cloud bucket name',
-        format: String,
-        default: null,
-        env: 'STORAGE_BUCKET',
-      },
+      name: process.env.STORAGE_BUCKET,
+      // name: {
+      //   doc: 'Default Cloud bucket name',
+      //   format: String,
+      //   default: null,
+      //   env: 'STORAGE_BUCKET',
+      // },
     },
     project: {
-      id: {
-        doc: 'The Google Cloud Platform project ID',
-        format: String,
-        default: null,
-        env: 'PROJECT_ID',
-      },
+      id: process.env.PROJECT_ID,
+      // id: {
+      //   doc: 'The Google Cloud Platform project ID',
+      //   format: String,
+      //   default: null,
+      //   env: 'PROJECT_ID',
+      // },
+
       number: {
         doc: 'The Google Cloud Platform project number',
         format: String,
