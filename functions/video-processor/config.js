@@ -29,7 +29,7 @@ const config = convict({
       number: {
         doc: 'The Google Cloud Platform project number',
         format: String,
-        default: '652750001104',
+        default: '896476077149',
         env: 'PROJECT_NUMBER',
       },
     },
