@@ -1,0 +1,112 @@
+# This workflow will build and test a Node.js project
+name: Node.js CI
+
+on:
+  push:
+#    branches: ["feature/*", "bug/*", hotfix/*, fix/*]
+    branches: ["master"]
+  pull_request:
+#    branches: ["develop", "dev", "sandbox", "main"]
+    branches: ["master"]
+  workflow_call:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+
+    # Permission required for unit test report publish
+    # using mikepenz/action-junit-report GitHub action
+    permissions:
+      checks: write
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node v18
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Get current datetime
+        id: current-datetime
+        run: echo "datetime=$(date +'%Y-%m-%d_%H-%M-%S')" >> $GITHUB_OUTPUT
+
+      - name: Install dependencies
+        working-directory: .
+        run: find ./* -maxdepth 2 -name package.json -execdir npm ci \;
+
+      - name: Lint with ESLint
+        run: DEBUG=eslint:cli-engine npx eslint .
+
+      - name: Test with AVA
+        id: unit-tests-step
+        run: |
+          find ./* -maxdepth 2 -name ava.config.js -print0 | \
+            xargs --null -I {} sh -c 'cd "$(dirname "{}")" && \
+            npx nyc --temp-dir="../../.nyc_output" --no-clean ava --tap | \
+            npx tap-junit > test_report.xml'
+
+      - name: Publish test report
+        id: unit-tests-report-publish
+        uses: mikepenz/action-junit-report@v4
+        if: success() || failure()
+        with:
+          report_paths: '**/test_report.xml'
+          check_name: 'Unit Tests report'
+          require_passed_tests: true
+          detailed_summary: true
+          include_passed: true
+
+      - name: Generate test coverage report
+        id: unit-tests-coverage-step
+        run: npx nyc report --reporter lcov --reporter json-summary --reporter cobertura
+      
+      - name: Upload test report artifact
+        id: upload-test-artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report-artifact_${{ steps.current-datetime.outputs.datetime }}
+          path: coverage/lcov-report
+          retention-days: 14
+
+      - name: Generate code coverage summary report
+        id: code-coverage-report
+        uses: irongut/CodeCoverageSummary@v1.3.0
+        with:
+          filename: coverage/cobertura-coverage.xml
+          format: markdown
+          output: both
+          badge: true
+          indicators: true
+          thresholds: '60 80'
+
+      - name: Add code coverage PR comment
+        id: code-coverage-pr-comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        if: github.event_name == 'pull_request'
+        with:
+          path: code-coverage-results.md
+          recreate: true
+
+      - name: Add code coverage report to GitHub output
+        id: code-coverage-report-to-gh-output
+        run: |
+          {
+            echo 'summary<<='
+            awk '{printf "%s\\n", $0}' code-coverage-results.md 
+            echo
+            echo =
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Add code coverage check
+        uses: LouisBrunner/checks-action@v1.6.1
+        if: always()
+        with:
+          name: Code Coverage Report
+          token: ${{ secrets.GITHUB_TOKEN }}
+          conclusion: ${{ job.status }}
+          output: |
+            {"summary": "${{ steps.code-coverage-report-to-gh-output.outputs.summary }}"}

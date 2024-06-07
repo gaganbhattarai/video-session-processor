@@ -1,0 +1,68 @@
+name: Deploy to Firebase Sandbox Env
+
+on:
+  push:
+    branches:
+      - "sandbox"
+  workflow_dispatch:
+
+jobs:
+  integration:
+    uses: ./.github/workflows/node-ci-workflow.yml
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+  
+  build_and_deploy:
+    needs: [integration]
+
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node v18
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        working-directory: .
+        run: find ./* -maxdepth 2 -name package.json -execdir npm ci \;
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.SANDBOX_GOOGLE_APPLICATION_CREDENTIALS }}
+
+      - name: Create env file for deployment
+        id: env-file-create-step
+        run: |
+          cd functions && touch .env
+          echo PROJECT_ID=$PROJECT_ID >> .env
+          echo STORAGE_BUCKET=$STORAGE_BUCKET >> .env
+        env:
+          PROJECT_ID: ${{ vars.SANDBOX_PROJECT_ID }}
+          STORAGE_BUCKET: ${{ secrets.SANDBOX_STORAGE_BUCKET }}
+
+      - name: Deploy function to Firebase
+        id: initial-deploy-step
+        continue-on-error: true
+        run: npx firebase-tools deploy --only functions --project ${{ vars.SANDBOX_FIREBASE_PROJECT }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path  }}
+
+      - name: Retry deploy function to Firebase
+        id: retry-deploy-step
+
+        if: steps.initial-deploy-step.outcome == 'failure'
+        run: npx firebase-tools deploy --only functions --project ${{ vars.SANDBOX_FIREBASE_PROJECT }} --debug
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
+
+      - name: Clean up env file
+        id: env-file-cleanup-step
+        if: ('!cancelled()' || steps.env-file-create-step.outcome != 'failure')
+        run: rm functions/.env
